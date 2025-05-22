@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Menedżer Finansów PWA</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4F46E5">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .notification {
+            position: fixed; bottom: 20px; left: 50%;
+            transform: translateX(-50%);
+            background-color: #10B981; color: white;
+            padding: 1rem; border-radius: 0.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 1000; opacity: 0;
+            transition: opacity 0.5s ease-in-out, transform 0.3s ease-in-out;
+            min-width: 250px; text-align: center;
+        }
+        .notification.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+        .notification.error { background-color: #EF4444; }
+        .progress-bar-container {
+            background-color: #e9ecef; border-radius: 0.375rem;
+            height: 1.25rem; overflow: hidden;
+        }
+        .progress-bar {
+            background-color: #4ade80; height: 100%;
+            transition: width 0.3s ease-in-out;
+            text-align: center; color: #14532d;
+            font-size: 0.75rem; line-height: 1.25rem;
+        }
+        .progress-bar.warning { background-color: #facc15; }
+        .progress-bar.danger { background-color: #f87171; }
+
+        body.dark-mode {
+            background-color: #1f2937;
+            color: #f3f4f6;
+        }
+        body.dark-mode .bg-white { background-color: #374151;  }
+        body.dark-mode .bg-gray-50 { background-color: #4b5563;  }
+        body.dark-mode .bg-gray-100 { background-color: #1f2937;  }
+        body.dark-mode .text-gray-800 { color: #f3f4f6;  }
+        body.dark-mode .text-gray-700 { color: #d1d5db;  }
+        body.dark-mode .text-gray-600 { color: #9ca3af;  }
+        body.dark-mode .text-gray-500 { color: #6b7280;  }
+        body.dark-mode .text-gray-400 { color: #9ca3af;  }
+        body.dark-mode .border-gray-300 { border-color: #4b5563;  }
+        body.dark-mode input, body.dark-mode select {
+            background-color: #4b5563;
+            color: #f3f4f6;
+            border-color: #6b7280;
+        }
+        body.dark-mode input::placeholder { color: #9ca3af;  }
+        body.dark-mode .active-tab { background-color: #4338ca;  }
+        body.dark-mode .tab-button:not(.active-tab) { color: #a5b4fc;  }
+        body.dark-mode .tab-button:not(.active-tab):hover { background-color: #3730a3;  }
+        body.dark-mode .text-indigo-700 { color: #818cf8;  }
+        body.dark-mode .text-indigo-600 { color: #a5b4fc;  }
+        body.dark-mode .shadow { box-shadow: 0 1px 3px 0 rgba(255,255,255,0.1), 0 1px 2px 0 rgba(255,255,255,0.06); }
+        body.dark-mode .shadow-lg { box-shadow: 0 10px 15px -3px rgba(255,255,255,0.05), 0 4px 6px -2px rgba(255,255,255,0.03); }
+        body.dark-mode .shadow-inner { box-shadow: inset 0 2px 4px 0 rgba(255,255,255,0.03); }
+        body.dark-mode .bg-green-100 { background-color: #052e16; border-color: #15803d; }
+        body.dark-mode .text-green-700 { color: #6ee7b7; }
+        body.dark-mode .border-green-500 { border-color: #22c55e; }
+        body.dark-mode .bg-red-100 { background-color: #450a0a; border-color: #dc2626;}
+        body.dark-mode .text-red-700 { color: #fca5a5; }
+        body.dark-mode .border-red-500 { border-color: #ef4444; }
+        body.dark-mode .progress-bar-container { background-color: #4b5563; }
+        body.dark-mode .progress-bar { background-color: #22c55e; color: #f0fdf4; }
+        body.dark-mode .progress-bar.warning { background-color: #eab308; }
+        body.dark-mode .progress-bar.danger { background-color: #ef4444; }
+        body.dark-mode .chartjs-legend li span { background-color: #4b5563 !important; }
+        body.dark-mode .chartjs-tooltip { background-color: rgba(55, 65, 81, 0.8) !important; color: #f3f4f6 !important; }
+        body.dark-mode .chartjs-tooltip-key { border-color: #f3f4f6 !important; }
+        body.dark-mode .chartjs-scale-label { color: #d1d5db !important; }
+        body.dark-mode .chartjs-axis-grid-line { color: rgba(107, 114, 128, 0.5) !important; }
+        body.dark-mode .chartjs-axis-tick-label { color: #9ca3af !important; }
+
+        .fa-spinner-loader {
+            font-size: 2rem;
+            color: #4F46E5;
+            display: block;
+            margin: 20px auto;
+        }
+        body.dark-mode .fa-spinner-loader {
+            color: #818cf8;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800">
+
+<div class="container mx-auto p-4 max-w-2xl">
+    <header class="bg-indigo-600 text-white p-6 rounded-lg shadow-lg mb-6">
+        <h1 class="text-3xl font-bold text-center"><i class="fas fa-wallet mr-2"></i>Menedżer Finansów</h1>
+    </header>
+
+    <nav class="mb-6">
+        <ul class="flex justify-center space-x-2 sm:space-x-4 bg-white p-3 rounded-lg shadow">
+            <li><button data-tab="transactions" class="tab-button active-tab bg-indigo-500 text-white px-3 py-2 sm:px-4 sm:py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition duration-150 ease-in-out text-sm sm:text-base"><i class="fas fa-exchange-alt mr-1 sm:mr-2"></i>Transakcje</button></li>
+            <li><button data-tab="budget" class="tab-button text-indigo-600 px-3 py-2 sm:px-4 sm:py-2 rounded-md hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition duration-150 ease-in-out text-sm sm:text-base"><i class="fas fa-piggy-bank mr-1 sm:mr-2"></i>Budżet</button></li>
+            <li><button data-tab="reports" class="tab-button text-indigo-600 px-3 py-2 sm:px-4 sm:py-2 rounded-md hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition duration-150 ease-in-out text-sm sm:text-base"><i class="fas fa-chart-pie mr-1 sm:mr-2"></i>Raporty</button></li>
+            <li><button data-tab="settings" class="tab-button text-indigo-600 px-3 py-2 sm:px-4 sm:py-2 rounded-md hover:bg-indigo-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition duration-150 ease-in-out text-sm sm:text-base"><i class="fas fa-cog mr-1 sm:mr-2"></i>Ustawienia</button></li>
+        </ul>
+    </nav>
+
+    <div id="notificationArea" class="notification"></div>
+
+    <main id="transactionsTabContent" class="tab-content active">
+        <section id="addTransactionSection" class="mb-8 p-6 bg-white rounded-lg shadow">
+            <h2 class="text-2xl font-semibold mb-4 text-indigo-700">Dodaj nową transakcję</h2>
+            <form id="transactionForm" class="space-y-4">
+                <div>
+                    <label for="description" class="block text-sm font-medium text-gray-700">Opis:</label>
+                    <input type="text" id="description" name="description" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="amount" class="block text-sm font-medium text-gray-700">Kwota (PLN):</label>
+                    <input type="number" id="amount" name="amount" step="0.01" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="type" class="block text-sm font-medium text-gray-700">Typ:</label>
+                    <select id="type" name="type" required class="mt-1 block w-full px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                        <option value="wydatek">Wydatek</option>
+                        <option value="przychod">Przychód</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="category" class="block text-sm font-medium text-gray-700">Kategoria:</label>
+                    <input type="text" id="category" name="category" placeholder="np. Żywność, Transport, Wynagrodzenie" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="date" class="block text-sm font-medium text-gray-700">Data:</label>
+                    <input type="date" id="date" name="date" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition duration-150 ease-in-out">
+                    <i class="fas fa-plus-circle mr-2"></i>Dodaj transakcję
+                </button>
+            </form>
+        </section>
+
+        <section id="transactionListSection" class="p-6 bg-white rounded-lg shadow">
+            <h2 class="text-2xl font-semibold mb-4 text-indigo-700">Historia transakcji</h2>
+            <div class="flex justify-between items-center mb-4">
+                <div class="font-semibold">Saldo: <span id="balanceElement" class="text-indigo-600">0.00 PLN</span></div>
+                <button id="clearAllTransactionsButton" class="bg-red-500 hover:bg-red-600 text-white font-semibold py-1 px-3 rounded-md shadow-sm text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 transition duration-150 ease-in-out">
+                    <i class="fas fa-trash-alt mr-1"></i>Wyczyść wszystko
+                </button>
+            </div>
+            <div id="transactionLoaderContainerElement" class="text-center py-4" style="display: none;">
+                <i class="fas fa-spinner fa-spin fa-spinner-loader"></i>
+                <p class="text-sm text-gray-500 mt-2">Ładowanie transakcji...</p>
+            </div>
+            <ul id="transactionListElement" class="space-y-3"></ul>
+        </section>
+    </main>
+
+    <section id="budgetTabContent" class="tab-content p-6 bg-white rounded-lg shadow">
+        <h2 class="text-2xl font-semibold mb-6 text-indigo-700">Zarządzanie budżetem (Miesięczne)</h2>
+        <section id="addBudgetSection" class="mb-8 p-6 bg-gray-50 rounded-lg shadow-inner">
+            <h3 class="text-xl font-semibold mb-4 text-indigo-600">Dodaj nowy budżet miesięczny</h3>
+            <form id="budgetForm" class="space-y-4">
+                <div>
+                    <label for="budgetCategory" class="block text-sm font-medium text-gray-700">Kategoria:</label>
+                    <input type="text" id="budgetCategory" name="budgetCategory" required placeholder="np. Żywność, Rozrywka" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <div>
+                    <label for="budgetLimit" class="block text-sm font-medium text-gray-700">Limit miesięczny (PLN):</label>
+                    <input type="number" id="budgetLimit" name="budgetLimit" step="0.01" min="0.01" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                </div>
+                <button type="submit" class="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition duration-150 ease-in-out">
+                    <i class="fas fa-plus-circle mr-2"></i>Dodaj budżet
+                </button>
+            </form>
+        </section>
+        <section id="budgetListSection">
+            <h3 class="text-xl font-semibold mb-4 text-indigo-600">Twoje budżety na ten miesiąc</h3>
+            <div id="budgetLoaderContainerElement" class="text-center py-4" style="display: none;">
+                <i class="fas fa-spinner fa-spin fa-spinner-loader"></i>
+                <p class="text-sm text-gray-500 mt-2">Ładowanie budżetów...</p>
+            </div>
+            <ul id="budgetListElement" class="space-y-4"></ul>
+        </section>
+    </section>
+
+    <section id="reportsTabContent" class="tab-content p-6 bg-white rounded-lg shadow">
+        <h2 class="text-2xl font-semibold mb-6 text-indigo-700">Raporty finansowe</h2>
+        <div class="mb-6">
+            <label for="reportPeriodSelect" class="block text-sm font-medium text-gray-700">Okres raportu:</label>
+            <select id="reportPeriodSelect" name="reportPeriod" class="mt-1 block w-full max-w-xs px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                <option value="currentMonth">Bieżący miesiąc</option>
+                <option value="lastMonth">Poprzedni miesiąc</option>
+                <option value="allTime">Cały okres</option>
+            </select>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="p-4 bg-gray-50 rounded-lg shadow-inner min-h-[300px] flex flex-col">
+                <h3 class="text-xl font-semibold mb-2 text-indigo-600 text-center">Wydatki wg kategorii</h3>
+                <div class="flex-grow w-full flex items-center justify-center">
+                    <canvas id="expensesByCategoryChartCanvas" style="display: none;"></canvas>
+                    <p id="noDataExpensesMessage" class="text-gray-500">Ładowanie danych...</p>
+                </div>
+            </div>
+            <div class="p-4 bg-gray-50 rounded-lg shadow-inner min-h-[300px] flex flex-col">
+                <h3 class="text-xl font-semibold mb-2 text-indigo-600 text-center">Przychody vs. Wydatki</h3>
+                <div class="flex-grow w-full flex items-center justify-center">
+                    <canvas id="incomeVsExpensesChartCanvas" style="display: none;"></canvas>
+                    <p id="noDataIncomeMessage" class="text-gray-500">Ładowanie danych...</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <section id="settingsTabContent" class="tab-content p-6 bg-white rounded-lg shadow">
+        <h2 class="text-2xl font-semibold mb-4 text-indigo-700">Ustawienia</h2>
+        <div class="mb-6">
+            <label for="themeSelector" class="block text-sm font-medium text-gray-700 mb-1">Preferowany motyw:</label>
+            <select id="themeSelector" class="mt-1 block w-full max-w-xs px-3 py-2 border border-gray-300 bg-white rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                <option value="light">Jasny</option>
+                <option value="dark">Ciemny</option>
+            </select>
+        </div>
+        <button id="requestNotificationPermissionButton" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition duration-150 ease-in-out">
+            <i class="fas fa-bell mr-2"></i>Włącz powiadomienia
+        </button>
+    </section>
+</div>
+
+<script src="script.js" defer></script>
+</body>
+</html>
