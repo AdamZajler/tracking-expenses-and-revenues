@@ -124,43 +124,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function fetchTransactions() {
-        console.log("[FRONTEND] fetchTransactions: Rozpoczęcie pobierania transakcji...");
         if (transactionLoaderContainerElement) transactionLoaderContainerElement.style.display = 'block';
         if (transactionListElement) transactionListElement.innerHTML = '';
 
         try {
             const response = await fetch(`${API_URL}/transactions`, { headers: getAuthHeaders() });
-            console.log('[FRONTEND] fetchTransactions: Status odpowiedzi serwera:', response.status);
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ message: `Błąd HTTP! Status: ${response.status}` }));
-                console.error('[FRONTEND] fetchTransactions: Błąd odpowiedzi serwera:', errorData);
                 throw new Error(errorData.message || `Błąd HTTP! Status: ${response.status}`);
             }
             const data = await response.json();
-            console.log('[FRONTEND] fetchTransactions: Otrzymane dane (surowe):', data);
-
-            if (Array.isArray(data)) {
-                localTransactions = data;
-                console.log('[FRONTEND] fetchTransactions: localTransactions zaktualizowane danymi z serwera.');
-            } else {
-                console.error('[FRONTEND] fetchTransactions: Otrzymane dane nie są tablicą:', data);
-                localTransactions = [];
-                showToast('Otrzymano niepoprawne dane transakcji z serwera.', 'error');
-            }
+            localTransactions = Array.isArray(data) ? data : [];
         } catch (error) {
-            console.error("[FRONTEND] fetchTransactions: Wystąpił błąd podczas pobierania:", error);
-            showToast(error.message || 'Nie udało się pobrać transakcji. Sprawdź połączenie i spróbuj ponownie.', 'error');
+            console.error("Błąd podczas pobierania transakcji:", error);
+            showToast(error.message || 'Nie udało się pobrać transakcji.', 'error');
             localTransactions = [];
         } finally {
             if (transactionLoaderContainerElement) transactionLoaderContainerElement.style.display = 'none';
-            console.log("[FRONTEND] fetchTransactions: Zakończono próbę pobierania. Aktualny stan localTransactions:", JSON.parse(JSON.stringify(localTransactions)));
         }
     }
 
     function renderTransactions() {
-        console.log('[FRONTEND] renderTransactions: Rozpoczęcie renderowania. Aktualny stan localTransactions:', JSON.parse(JSON.stringify(localTransactions)));
         if (!transactionListElement) {
-            console.error("[FRONTEND] renderTransactions: Element listy transakcji (transactionListElement) nie został znaleziony!");
             if (transactionLoaderContainerElement) transactionLoaderContainerElement.style.display = 'none';
             return;
         }
@@ -168,39 +153,24 @@ document.addEventListener('DOMContentLoaded', () => {
         transactionListElement.innerHTML = '';
 
         if (!Array.isArray(localTransactions) || localTransactions.length === 0) {
-            console.log('[FRONTEND] renderTransactions: Brak transakcji do wyświetlenia lub localTransactions nie jest tablicą. Wyświetlanie komunikatu "Brak transakcji".');
             transactionListElement.innerHTML = '<li class="text-gray-500 text-center py-4">Brak transakcji. Dodaj pierwszą!</li>';
             updateBalance();
             return;
         }
 
-        console.log(`[FRONTEND] renderTransactions: Przetwarzanie ${localTransactions.length} transakcji.`);
         try {
-            const sortedTransactions = [...localTransactions].sort((a, b) => {
-                const dateA = new Date(a.date);
-                const dateB = new Date(b.date);
-                if (isNaN(dateA.getTime()) && isNaN(dateB.getTime())) return 0;
-                if (isNaN(dateA.getTime())) return 1;
-                if (isNaN(dateB.getTime())) return -1;
-                return dateB - dateA;
-            });
+            const sortedTransactions = [...localTransactions].sort((a, b) => new Date(b.date) - new Date(a.date));
 
-            sortedTransactions.forEach((transaction, index) => {
-                console.log(`[FRONTEND] renderTransactions: Przetwarzanie transakcji (index ${index}):`, JSON.parse(JSON.stringify(transaction)));
+            sortedTransactions.forEach(transaction => {
                 if (!transaction || typeof transaction.type !== 'string' || typeof transaction.amount !== 'number' || !transaction._id) {
-                    console.warn(`[FRONTEND] renderTransactions: Nieprawidłowy lub niekompletny obiekt transakcji (index ${index}):`, transaction);
+                    console.warn(`Nieprawidłowy obiekt transakcji:`, transaction);
                     return;
                 }
 
                 const li = document.createElement('li');
-                li.classList.add('flex', 'justify-between', 'items-center', 'p-3', 'rounded-md', 'shadow-sm');
-
-                if (transaction.type === 'przychod') {
-                    li.classList.add('bg-green-100', 'border-green-500');
-                } else {
-                    li.classList.add('bg-red-100', 'border-red-500');
-                }
-                li.classList.add('border-l-4');
+                li.classList.add('flex', 'justify-between', 'items-center', 'p-3', 'rounded-md', 'shadow-sm', 'border-l-4');
+                li.classList.add(transaction.type === 'przychod' ? 'bg-green-100' : 'bg-red-100');
+                li.classList.add(transaction.type === 'przychod' ? 'border-green-500' : 'border-red-500');
 
                 const amountSign = transaction.type === 'przychod' ? '+' : '-';
                 const amountColor = transaction.type === 'przychod' ? 'text-green-700' : 'text-red-700';
@@ -221,20 +191,16 @@ document.addEventListener('DOMContentLoaded', () => {
                             </button>
                         </div>`;
                 transactionListElement.appendChild(li);
-                console.log(`[FRONTEND] renderTransactions: Dodano element dla transakcji ID ${transaction._id}`);
             });
         } catch (error) {
-            console.error("[FRONTEND] renderTransactions: Wystąpił błąd podczas tworzenia lub dodawania elementów transakcji:", error);
+            console.error("Błąd podczas renderowania transakcji:", error);
             showToast('Błąd podczas wyświetlania listy transakcji.', 'error');
         }
-
         updateBalance();
         addDeleteEventListeners();
-        console.log('[FRONTEND] renderTransactions: Zakończono renderowanie.');
     }
 
     async function fetchAndRenderTransactions() {
-        console.log("[FRONTEND] fetchAndRenderTransactions: Wywołano.");
         await fetchTransactions();
         renderTransactions();
         if (document.getElementById('reportsTabContent').classList.contains('active')) {
@@ -289,7 +255,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const type = document.getElementById('type').value;
             const category = document.getElementById('category').value.trim() || 'Bez kategorii';
             const date = document.getElementById('date').value;
-
             const amount = parseFloat(amountInput);
 
             if (!description || !amountInput || !type || !date) {
@@ -298,7 +263,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isNaN(amount) || amount <= 0) {
                 showToast('Kwota musi być poprawną liczbą większą od zera.', 'error'); return;
             }
-
             const newTransaction = { description, amount, type, category, date };
 
             try {
@@ -323,7 +287,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     if (type === 'wydatek') checkBudgetAlerts(category, amount);
                 }
-
             } catch (error) {
                 console.error("Błąd podczas dodawania transakcji:", error);
                 showToast(error.message || 'Błąd serwera przy dodawaniu.', 'error');
@@ -358,36 +321,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function fetchBudgets() {
-        console.log("[FRONTEND] fetchBudgets: Rozpoczęcie pobierania budżetów...");
         if(budgetLoaderContainerElement) budgetLoaderContainerElement.style.display = 'block';
         if(budgetListElement) budgetListElement.innerHTML = '';
 
         try {
             const response = await fetch(`${API_URL}/budgets`, { headers: getAuthHeaders() });
-            console.log('[FRONTEND] fetchBudgets: Status odpowiedzi serwera:', response.status);
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ message: `Błąd HTTP! Status: ${response.status}` }));
-                console.error('[FRONTEND] fetchBudgets: Błąd odpowiedzi serwera:', errorData);
                 throw new Error(errorData.message || `Błąd HTTP! Status: ${response.status}`);
             }
             const data = await response.json();
-            console.log('[FRONTEND] fetchBudgets: Otrzymane dane (surowe):', data);
             localBudgets = Array.isArray(data) ? data : [];
-            console.log('[FRONTEND] fetchBudgets: localBudgets zaktualizowane:', JSON.parse(JSON.stringify(localBudgets)));
         } catch (error) {
-            console.error("[FRONTEND] fetchBudgets: Wystąpił błąd:", error);
+            console.error("Błąd podczas pobierania budżetów:", error);
             showToast(error.message || 'Nie udało się pobrać budżetów.', 'error');
             localBudgets = [];
         } finally {
             if(budgetLoaderContainerElement) budgetLoaderContainerElement.style.display = 'none';
-            console.log("[FRONTEND] fetchBudgets: Zakończono próbę pobierania.");
         }
     }
 
     function renderBudgets() {
-        console.log('[FRONTEND] renderBudgets: Rozpoczęcie. Aktualny stan localBudgets:', JSON.parse(JSON.stringify(localBudgets)));
         if (!budgetListElement) {
-            console.error("[FRONTEND] renderBudgets: Element listy budżetów (budgetListElement) nie znaleziony!");
             if(budgetLoaderContainerElement) budgetLoaderContainerElement.style.display = 'none';
             return;
         }
@@ -398,16 +353,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentYear = new Date().getFullYear();
 
         if (!Array.isArray(localBudgets) || localBudgets.length === 0) {
-            console.log('[FRONTEND] renderBudgets: Brak budżetów do wyświetlenia. Wyświetlanie komunikatu.');
             budgetListElement.innerHTML = '<li class="text-gray-500 text-center py-4">Brak zdefiniowanych budżetów. Dodaj pierwszy!</li>';
             return;
         }
 
-        console.log(`[FRONTEND] renderBudgets: Przetwarzanie ${localBudgets.length} budżetów.`);
-        localBudgets.forEach((budget, index) => {
-            console.log(`[FRONTEND] renderBudgets: Przetwarzanie budżetu (index ${index}):`, JSON.parse(JSON.stringify(budget)));
+        localBudgets.forEach(budget => {
             if (!budget || typeof budget.category !== 'string' || typeof budget.limit !== 'number') {
-                console.warn(`[FRONTEND] renderBudgets: Nieprawidłowy obiekt budżetu (index ${index}):`, budget);
+                console.warn(`Nieprawidłowy obiekt budżetu:`, budget);
                 return;
             }
 
@@ -420,10 +372,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const budgetLimit = parseFloat(budget.limit) || 0;
             const percentageSpent = budgetLimit > 0 ? (spentThisMonth / budgetLimit) * 100 : 0;
             const remaining = budgetLimit - spentThisMonth;
-
             const li = document.createElement('li');
             li.classList.add('p-4', 'bg-gray-50', 'rounded-lg', 'shadow');
-
             let progressBarClass = 'progress-bar';
             if (percentageSpent > 100) progressBarClass += ' danger';
             else if (percentageSpent >= 80) progressBarClass += ' warning';
@@ -442,15 +392,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div class="${progressBarClass}" style="width: ${Math.min(percentageSpent, 100)}%;">${percentageSpent.toFixed(0)}%</div>
                     </div>`;
             budgetListElement.appendChild(li);
-            console.log(`[FRONTEND] renderBudgets: Dodano element dla budżetu ${budget.category}`);
         });
         addDeleteBudgetEventListeners();
-        console.log('[FRONTEND] renderBudgets: Zakończono renderowanie.');
     }
 
-
     async function fetchAndRenderBudgets() {
-        console.log("[FRONTEND] fetchAndRenderBudgets: Wywołano.");
         await fetchBudgets();
         renderBudgets();
         if (document.getElementById('reportsTabContent').classList.contains('active')) {
@@ -496,9 +442,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isNaN(limit) || limit <= 0) {
                 showToast('Limit musi być poprawną liczbą większą od zera.', 'error'); return;
             }
-
             const newBudget = { category, limit };
-            console.log("[FRONTEND] budgetForm submit: Próba dodania budżetu:", newBudget);
 
             try {
                 const response = await fetch(`${API_URL}/budgets`, {
@@ -506,17 +450,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: getAuthHeaders(),
                     body: JSON.stringify(newBudget)
                 });
-                console.log('[FRONTEND] budgetForm submit: Status odpowiedzi serwera:', response.status);
                 if (!response.ok) {
                     const errData = await response.json().catch(() => ({ message: 'Nie udało się dodać budżetu.' }));
-                    console.error('[FRONTEND] budgetForm submit: Błąd odpowiedzi serwera:', errData);
                     throw new Error(errData.message);
                 }
                 showToast('Budżet dodany pomyślnie!', 'success');
                 budgetForm.reset();
                 fetchAndRenderBudgets();
             } catch (error) {
-                console.error("[FRONTEND] budgetForm submit: Wystąpił błąd:", error);
+                console.error("Błąd podczas dodawania budżetu:", error);
                 showToast(error.message || 'Błąd serwera.', 'error');
             }
         });
@@ -525,40 +467,31 @@ document.addEventListener('DOMContentLoaded', () => {
     function checkBudgetAlerts(category, amount) {
         const budget = localBudgets.find(b => b.category.toLowerCase() === category.toLowerCase());
         if (!budget) return;
-
         const budgetLimit = parseFloat(budget.limit);
         if (isNaN(budgetLimit) || budgetLimit <= 0) return;
-
         const currentMonth = new Date().getMonth();
         const currentYear = new Date().getFullYear();
-
         const spentThisMonth = localTransactions
             .filter(t => t.type === 'wydatek' && t.category.toLowerCase() === category.toLowerCase() &&
                 new Date(t.date).getMonth() === currentMonth &&
                 new Date(t.date).getFullYear() === currentYear)
             .reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
-
         const percentageSpent = (spentThisMonth / budgetLimit) * 100;
-
-
         let alertMessage = null;
         if (percentageSpent >= 100) {
             alertMessage = `Przekroczono budżet (${budgetLimit.toFixed(2)} PLN) dla kategorii "${category}"! Wydano ${spentThisMonth.toFixed(2)} PLN.`;
         } else if (percentageSpent >= 80) {
             alertMessage = `Uwaga! Wydano ${percentageSpent.toFixed(0)}% budżetu (${budgetLimit.toFixed(2)} PLN) dla kategorii "${category}".`;
         }
-
         if (alertMessage && Notification.permission === "granted") {
             new Notification("Alert Budżetowy", { body: alertMessage, icon: './icons/icon-expense-192.png' });
         }
     }
 
-
     function getFilteredTransactionsForReport() {
         const period = reportPeriodSelect.value;
         const now = new Date();
         let startDate, endDate;
-
         if (period === 'currentMonth') {
             startDate = new Date(now.getFullYear(), now.getMonth(), 1);
             endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
@@ -568,7 +501,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             return localTransactions;
         }
-
         return localTransactions.filter(t => {
             const tDate = new Date(t.date);
             return !isNaN(tDate.getTime()) && tDate >= startDate && tDate <= endDate;
@@ -579,13 +511,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!expensesByCategoryChartContext || !incomeVsExpensesChartContext || !noDataExpensesMessage || !noDataIncomeMessage) {
             if (expensesByCategoryChartCanvas) expensesByCategoryChartContext = expensesByCategoryChartCanvas.getContext('2d');
             if (incomeVsExpensesChartCanvas) incomeVsExpensesChartContext = incomeVsExpensesChartCanvas.getContext('2d');
-
             if (!expensesByCategoryChartContext || !incomeVsExpensesChartContext) {
-                console.error("Nie można zainicjować kontekstów wykresów. Elementy canvas nie istnieją lub nie są widoczne.");
+                console.error("Nie można zainicjować kontekstów wykresów.");
                 return;
             }
         }
-
         if (expensesChart) { expensesChart.destroy(); expensesChart = null; }
         if (incomeExpenseChart) { incomeExpenseChart.destroy(); incomeExpenseChart = null; }
 
@@ -603,14 +533,11 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return;
         }
-
         const isDarkMode = bodyElement.classList.contains('dark-mode');
         const gridColor = isDarkMode ? 'rgba(107, 114, 128, 0.5)' : 'rgba(0, 0, 0, 0.1)';
         const ticksColor = isDarkMode ? '#9ca3af' : '#666';
         const legendColor = isDarkMode ? '#d1d5db' : '#333';
-
         const filteredTransactions = getFilteredTransactionsForReport();
-
         const expensesByCat = filteredTransactions
             .filter(t => t.type === 'wydatek')
             .reduce((acc, t) => {
@@ -631,10 +558,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         backgroundColor: ['#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40', '#C9CBCF'],
                     }]
                 },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { labels: { color: legendColor } } }
-                }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: legendColor } } } }
             });
         } else {
             if(expensesByCategoryChartCanvas) expensesByCategoryChartCanvas.style.display = 'none';
@@ -643,7 +567,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 noDataExpensesMessage.style.display = 'block';
             }
         }
-
         const totalIncome = filteredTransactions.filter(t => t.type === 'przychod').reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
         const totalExpenses = Object.values(expensesByCat).reduce((sum, v) => sum + v, 0);
 
@@ -677,7 +600,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
     if (reportPeriodSelect) {
         reportPeriodSelect.addEventListener('change', renderReports);
     }
@@ -707,7 +629,6 @@ document.addEventListener('DOMContentLoaded', () => {
     function showModal(message, onConfirm) {
         const existingModal = document.getElementById('customModal');
         if (existingModal) existingModal.remove();
-
         const modalHTML = `
             <div id="customModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full flex items-center justify-center z-50">
                 <div class="relative p-5 border w-full max-w-md shadow-lg rounded-md bg-white dark:bg-gray-800">
@@ -726,25 +647,16 @@ document.addEventListener('DOMContentLoaded', () => {
             </div>
         `;
         document.body.insertAdjacentHTML('beforeend', modalHTML);
-
         const confirmButton = document.getElementById('confirmModalButton');
         const cancelButton = document.getElementById('cancelModalButton');
         const modal = document.getElementById('customModal');
-
-        confirmButton.onclick = () => {
-            onConfirm();
-            modal.remove();
-        };
-        cancelButton.onclick = () => {
-            modal.remove();
-        };
+        confirmButton.onclick = () => { onConfirm(); modal.remove(); };
+        cancelButton.onclick = () => { modal.remove(); };
     }
 
     async function fetchAndRenderAll() {
-        console.log("[FRONTEND] fetchAndRenderAll: Inicjalizacja danych aplikacji dla User ID:", currentUserId);
         await fetchAndRenderTransactions();
         await fetchAndRenderBudgets();
-        console.log("[FRONTEND] fetchAndRenderAll: Zakończono inicjalizację.");
     }
 
     fetchAndRenderAll();
@@ -752,8 +664,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('service-worker.js')
-                .then(registration => console.log('ServiceWorker zarejestrowany pomyślnie: ', registration.scope))
-                .catch(error => console.log('Rejestracja ServiceWorkera nie powiodła się: ', error));
+                .then(registration => console.log('ServiceWorker zarejestrowany pomyślnie:', registration.scope))
+                .catch(error => console.error('Rejestracja ServiceWorkera nie powiodła się:', error));
         });
     }
 });

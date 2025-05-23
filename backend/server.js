@@ -131,19 +131,16 @@ app.delete('/api/transactions', async (req, res) => {
 });
 
 app.get('/api/budgets', async (req, res) => {
-    console.log(`[Backend GET /api/budgets] Próba pobrania budżetów dla userId: ${req.userId}.`);
     try {
         const budgets = await Budget.find({ userId: req.userId }).sort({ category: 1 });
-        console.log(`[Backend GET /api/budgets] Pobrane budżety dla userId ${req.userId}:`, budgets);
         res.json(budgets);
     } catch (error) {
-        console.error(`[Backend GET /api/budgets] Błąd podczas pobierania budżetów dla userId ${req.userId}:`, error);
+        console.error(`Błąd podczas pobierania budżetów dla userId ${req.userId}:`, error);
         res.status(500).json({ message: 'Błąd serwera podczas pobierania budżetów.' });
     }
 });
 
 app.post('/api/budgets', async (req, res) => {
-    console.log(`[Backend POST /api/budgets] Otrzymano żądanie dodania budżetu dla userId: ${req.userId}:`, req.body);
     try {
         const { category, limit } = req.body;
         if (!category || typeof limit !== 'number') {
@@ -155,16 +152,14 @@ app.post('/api/budgets', async (req, res) => {
 
         const existingBudget = await Budget.findOne({ userId: req.userId, category: { $regex: new RegExp(`^${category}$`, 'i') } });
         if (existingBudget) {
-            console.log(`[Backend POST /api/budgets] Budżet dla kategorii "${category}" i userId "${req.userId}" już istnieje.`);
             return res.status(400).json({ message: `Budżet dla kategorii "${category}" już istnieje dla tego użytkownika.` });
         }
 
         const newBudget = new Budget({ userId: req.userId, category, limit });
         await newBudget.save();
-        console.log(`[Backend POST /api/budgets] Budżet zapisany pomyślnie dla userId ${req.userId}:`, newBudget);
         res.status(201).json(newBudget);
     } catch (error) {
-        console.error(`[Backend POST /api/budgets] Błąd podczas dodawania budżetu dla userId ${req.userId}:`, error);
+        console.error(`Błąd podczas dodawania budżetu dla userId ${req.userId}:`, error);
         if (error.name === 'ValidationError') {
             const messages = Object.values(error.errors).map(val => val.message);
             return res.status(400).json({ message: messages.join(', ') });
@@ -182,17 +177,14 @@ app.post('/api/budgets', async (req, res) => {
 
 app.delete('/api/budgets/:category', async (req, res) => {
     const categoryToDelete = req.params.category;
-    console.log(`[Backend DELETE /api/budgets] Próba usunięcia budżetu dla kategorii: ${categoryToDelete} i userId: ${req.userId}`);
     try {
         const deletedBudget = await Budget.findOneAndDelete({ userId: req.userId, category: { $regex: new RegExp(`^${categoryToDelete}$`, 'i') } });
         if (!deletedBudget) {
-            console.log(`[Backend DELETE /api/budgets] Nie znaleziono budżetu dla kategorii: ${categoryToDelete} i userId: ${req.userId}`);
             return res.status(404).json({ message: 'Nie znaleziono budżetu dla podanej kategorii dla tego użytkownika.' });
         }
-        console.log(`[Backend DELETE /api/budgets] Budżet usunięty pomyślnie dla kategorii: ${categoryToDelete} i userId: ${req.userId}`);
         res.json({ message: `Budżet dla kategorii "${deletedBudget.category}" usunięty pomyślnie.` });
     } catch (error) {
-        console.error(`[Backend DELETE /api/budgets] Błąd podczas usuwania budżetu dla kategorii ${categoryToDelete} i userId ${req.userId}:`, error);
+        console.error(`Błąd podczas usuwania budżetu dla kategorii ${categoryToDelete} i userId ${req.userId}:`, error);
         res.status(500).json({ message: 'Błąd serwera podczas usuwania budżetu.' });
     }
 });
