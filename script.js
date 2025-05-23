@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const API_URL = 'http://localhost:3000/api';
+    const API_URL = 'https://tracking-expenses-and-revenues.onrender.com/api';
 
     let currentUserId = localStorage.getItem('financeAppUserId');
     if (!currentUserId) {
