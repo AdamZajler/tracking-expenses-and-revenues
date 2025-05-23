@@ -7,7 +7,8 @@ const urlsToCache = [
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css',
     'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/webfonts/fa-solid-900.woff2',
     'https://cdn.jsdelivr.net/npm/chart.js',
-    './favicon.png',
+    '/favicon.png',
+    '/icon-512x512.png',
 ];
 
 self.addEventListener('install', event => {
@@ -23,7 +24,7 @@ self.addEventListener('install', event => {
                     return url;
                 });
                 return cache.addAll(requests)
-                    .catch(err => {
+                    .catch(()=>{
                         console.warn('Service Worker: Nie udało się zbuforować niektórych zasobów (tryb cors), próba z no-cors dla CDN');
                         const cdnRequestsNoCors = urlsToCache.map(url => {
                             if (url.startsWith('http')) return new Request(url, {mode: 'no-cors'});
